@@ -21,12 +21,12 @@ COPY <<-ENDHEREDOC /etc/nginx/conf.d/reverse-proxy.conf
 
   server {
     listen 443 ssl;
-    server_name $PROXIED_HOSTNAME;
+    server_name ${PROXIED_HOSTNAME};
     ssl_certificate /etc/ssl/certs/proxied.crt;
     ssl_certificate_key /etc/ssl/private/proxied.key;
 
     location / {
-      proxy_pass http://$PROXIED_SERVICENAME;
+      proxy_pass http://${PROXIED_SERVICENAME};
       }
     }
 ENDHEREDOC
