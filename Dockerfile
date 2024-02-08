@@ -20,6 +20,7 @@ COPY <<-ENDHEREDOC /etc/nginx/conf.d/reverse-proxy.conf
   server_tokens  off;
 
   server {
+    http2 on;
     listen 443 ssl;
     server_name ${PROXIED_HOSTNAME};
     ssl_certificate /etc/ssl/certs/proxied.crt;
@@ -27,8 +28,8 @@ COPY <<-ENDHEREDOC /etc/nginx/conf.d/reverse-proxy.conf
 
     location / {
       proxy_pass http://${PROXIED_SERVICENAME};
-      }
     }
+  }
 ENDHEREDOC
 
 EXPOSE 443
