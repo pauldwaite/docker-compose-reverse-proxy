@@ -1,35 +1,73 @@
 # syntax=docker/dockerfile:1.4
 
-FROM nginx:1.25-alpine
+FROM haproxy:2.8.7-alpine
 
-ARG PROXIED_SERVICENAME
-ENV PROXIED_SERVICENAME=$PROXIED_SERVICENAME
-ARG PROXIED_HOSTNAME=localhost
-ENV PROXIED_HOSTNAME=$PROXIED_HOSTNAME
+ARG BACKEND_PORT
+ENV BACKEND_PORT=$${BACKEND_PORT}
+ARG BACKEND_REPLICAS
+ENV BACKEND_REPLICAS=$${BACKEND_REPLICAS}
+ARG BACKEND_SERVICE
+ENV BACKEND_SERVICE=$${BACKEND_SERVICE}
+ARG FRONTEND_HOSTNAME
+ENV FRONTEND_HOSTNAME=$${FRONTEND_HOSTNAME}
+
+USER root
 
 RUN apk update && apk add openssl
 
 # https://letsencrypt.org/docs/certificates-for-localhost/
-RUN openssl req -x509 -out /etc/ssl/certs/proxied.crt -keyout /etc/ssl/private/proxied.key -newkey rsa:2048 -nodes -sha256 -subj '/CN='${PROXIED_HOSTNAME}'' -extensions EXT -config <(printf "[dn]\nCN=${PROXIED_HOSTNAME}\n[req]\ndistinguished_name = dn\n[EXT]\nsubjectAltName=DNS:${PROXIED_HOSTNAME}\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth")
-RUN chmod 644 /etc/ssl/certs/proxied.crt
-RUN chmod 600 /etc/ssl/private/proxied.key
+# https://stackoverflow.com/questions/16480846/x-509-private-public-key
+RUN openssl req \
+  -x509 \
+  -out    /etc/ssl/certs/reverseproxy.pem \
+  -keyout /etc/ssl/certs/reverseproxy.pem \
+  -newkey rsa:2048 \
+  -nodes \
+  -sha256 \
+  -subj '/CN='$${FRONTEND_HOSTNAME}'' \
+  -extensions EXT \
+  -config <(printf "[dn]\nCN=$${FRONTEND_HOSTNAME}\n[req]\ndistinguished_name = dn\n[EXT]\nsubjectAltName=DNS:$${FRONTEND_HOSTNAME}\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth")
+
+RUN chmod 644 /etc/ssl/certs/reverseproxy.pem
+
+USER haproxy
 
 # https://docs.docker.com/engine/reference/builder/#example-creating-inline-files
-COPY <<-ENDHEREDOC /etc/nginx/conf.d/reverse-proxy.conf
-  gzip  on;
-  server_tokens  off;
+COPY <<END_OF_FILE /usr/local/etc/haproxy/haproxy.cfg
 
-  server {
-    http2 on;
-    listen 443 ssl;
-    server_name ${PROXIED_HOSTNAME};
-    ssl_certificate /etc/ssl/certs/proxied.crt;
-    ssl_certificate_key /etc/ssl/private/proxied.key;
+  defaults
+    mode http
 
-    location / {
-      proxy_pass http://${PROXIED_SERVICENAME};
-    }
-  }
-ENDHEREDOC
+    timeout client 5000
+    timeout connect 5000
+    timeout server 5000
 
-EXPOSE 443
+  frontend proxy
+    bind $${FRONTEND_HOSTNAME}:80
+    bind $${FRONTEND_HOSTNAME}:443 ssl crt /etc/ssl/certs/reverseproxy.pem
+    # ? ssl crt
+    #   - https://www.haproxy.com/blog/haproxy-ssl-termination
+
+    default_backend proxied
+
+    http-request redirect scheme https unless { ssl_fc }
+    # ? http-request redirect
+    #   - https://www.haproxy.com/blog/haproxy-ssl-termination#redirecting-from-http-to-https
+
+  backend proxied
+    balance roundrobin
+
+    server-template $${BACKEND_SERVICE}- $${BACKEND_REPLICAS} $${BACKEND_SERVICE}:$${BACKEND_PORT} init-addr libc,none proto h2
+    # ? server-template
+    #   - https://stackoverflow.com/questions/68967624/how-to-access-docker-compose-created-replicas-in-haproxy-config
+
+    # ? init-addr libc,none — hopefully prevents HAProxy getting stuck on one replica
+    #   - https://stackoverflow.com/a/68977740/20578
+    #   - http://docs.haproxy.org/2.8/configuration.html#5.2-init-addr
+
+    # ? proto h2 — send unencrypted HTTP/2 to nginx
+    #   - https://www.haproxy.com/documentation/haproxy-configuration-tutorials/load-balancing/http/#http%2F2-over-http-(h2c)-to-the-server
+
+END_OF_FILE
+
+EXPOSE 80 443
