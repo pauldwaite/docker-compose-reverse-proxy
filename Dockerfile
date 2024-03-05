@@ -27,7 +27,7 @@ COPY <<"END_HAPROXY_CONFIG" /usr/local/etc/haproxy/haproxy.cfg
   resolvers docker
     nameserver dns1 127.0.0.11:53
   # ? resolvers docker — hopefully helps prevent HAProxy getting stuck on one replica?
-      - https://stackoverflow.com/a/68977740/20578
+  #   - https://stackoverflow.com/a/68977740/20578
 
   backend proxied
     balance roundrobin
