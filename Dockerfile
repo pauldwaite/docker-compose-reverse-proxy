@@ -37,7 +37,7 @@ COPY <<"END_HAPROXY_CONFIG" /usr/local/etc/haproxy/haproxy.cfg
     #   - https://stackoverflow.com/questions/68967624/how-to-access-docker-compose-created-replicas-in-haproxy-config
 
     # ? resolvers docker — hopefully prevents HAProxy getting stuck on one replica?
-        - https://stackoverflow.com/a/68977740/20578
+    #   - https://stackoverflow.com/a/68977740/20578
 
     # ? init-addr libc,none — hopefully prevents HAProxy getting stuck on one replica (although maybe not?)
     #   - https://stackoverflow.com/a/68977740/20578
