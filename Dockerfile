@@ -26,22 +26,27 @@ COPY <<"END_HAPROXY_CONFIG" /usr/local/etc/haproxy/haproxy.cfg
 
   resolvers docker
     nameserver dns1 127.0.0.11:53
+    accepted_payload_size 8192
   # ? resolvers docker — hopefully helps prevent HAProxy getting stuck on one replica?
   #   - https://stackoverflow.com/a/68977740/20578
+  # ? accepted_payload_size — hopefully helps prevent HAProxy getting stuck on one replica?
+  #   - https://www.haproxy.com/documentation/haproxy-configuration-tutorials/dns-resolution/#service-discovery-with-a-records
 
   backend proxied
     balance roundrobin
 
-    server-template "${BACKEND_SERVICE}"- "${BACKEND_REPLICAS}" "${BACKEND_SERVICE}":"${BACKEND_PORT}" resolvers docker init-addr libc,none proto h2
+    server-template "${BACKEND_SERVICE}"- "${BACKEND_REPLICAS}" "${BACKEND_SERVICE}":"${BACKEND_PORT}" resolvers docker init-addr none proto h2
     # ? server-template
     #   - https://stackoverflow.com/questions/68967624/how-to-access-docker-compose-created-replicas-in-haproxy-config
 
     # ? resolvers docker — hopefully prevents HAProxy getting stuck on one replica?
     #   - https://stackoverflow.com/a/68977740/20578
+    #   - https://www.haproxy.com/documentation/haproxy-configuration-tutorials/dns-resolution/#service-discovery-with-a-records
 
-    # ? init-addr libc,none — hopefully prevents HAProxy getting stuck on one replica (although maybe not?)
+    # ? init-addr none — hopefully prevents HAProxy getting stuck on one replica?
     #   - https://stackoverflow.com/a/68977740/20578
     #   - http://docs.haproxy.org/2.8/configuration.html#5.2-init-addr
+    #   - https://www.haproxy.com/documentation/haproxy-configuration-tutorials/dns-resolution/#service-discovery-with-a-records
 
     # ? proto h2 — send unencrypted HTTP/2 to nginx
     #   - https://www.haproxy.com/documentation/haproxy-configuration-tutorials/load-balancing/http/#http%2F2-over-http-(h2c)-to-the-server
