@@ -24,12 +24,20 @@ COPY <<"END_HAPROXY_CONFIG" /usr/local/etc/haproxy/haproxy.cfg
     # ? http-request redirect
     #   - https://www.haproxy.com/blog/haproxy-ssl-termination#redirecting-from-http-to-https
 
+  resolvers docker
+    nameserver dns1 127.0.0.11:53
+  # ? resolvers docker — hopefully helps prevent HAProxy getting stuck on one replica?
+      - https://stackoverflow.com/a/68977740/20578
+
   backend proxied
     balance roundrobin
 
-    server-template "${BACKEND_SERVICE}"- "${BACKEND_REPLICAS}" "${BACKEND_SERVICE}":"${BACKEND_PORT}" init-addr libc,none proto h2
+    server-template "${BACKEND_SERVICE}"- "${BACKEND_REPLICAS}" "${BACKEND_SERVICE}":"${BACKEND_PORT}" resolvers docker init-addr libc,none proto h2
     # ? server-template
     #   - https://stackoverflow.com/questions/68967624/how-to-access-docker-compose-created-replicas-in-haproxy-config
+
+    # ? resolvers docker — hopefully prevents HAProxy getting stuck on one replica?
+        - https://stackoverflow.com/a/68977740/20578
 
     # ? init-addr libc,none — hopefully prevents HAProxy getting stuck on one replica (although maybe not?)
     #   - https://stackoverflow.com/a/68977740/20578
